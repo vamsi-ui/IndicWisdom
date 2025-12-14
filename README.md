@@ -77,10 +77,8 @@ The app answers questions regarding lifestyle, Indian mythology, and culture by 
 ## 📸 Screenshots
 
 | Home Screen | Voice Input | AI Results |
-| *<img width="605" height="813" alt="image" src="https://github.com/user-attachments/assets/91a327c5-9ebf-4695-af25-eb51dc8340d5" />
-* | *<img width="603" height="815" alt="image" src="https://github.com/user-attachments/assets/7f56417f-d47d-4836-bd59-7f17f962b8e6" />
-* | *<img width="603" height="821" alt="image" src="https://github.com/user-attachments/assets/aa4768e7-9e74-4760-a81f-3a1482ef5030" />
-* |
+|---|---|---|
+| <img width="605" height="813" alt="image" src="https://github.com/user-attachments/assets/91a327c5-9ebf-4695-af25-eb51dc8340d5" /> | <img width="603" height="815" alt="image" src="https://github.com/user-attachments/assets/7f56417f-d47d-4836-bd59-7f17f962b8e6" /> | <img width="603" height="821" alt="image" src="https://github.com/user-attachments/assets/aa4768e7-9e74-4760-a81f-3a1482ef5030" /> |
 
 ---
 
