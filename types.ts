@@ -16,8 +16,13 @@ export interface ProcessingState {
   errorMessage?: string;
 }
 
-// Augment window for Web Speech API
+// Augment window for Web Speech API and AI Studio
 declare global {
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
   interface Window {
     SpeechRecognition: any;
     webkitSpeechRecognition: any;

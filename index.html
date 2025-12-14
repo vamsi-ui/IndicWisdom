@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>IndicWisdom</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              stone: {
+                950: '#0c0a09',
+              }
+            }
+          }
+        }
+      }
+    </script>
     <style>
       /* Custom scrollbar hiding for clean carousel */
       .no-scrollbar::-webkit-scrollbar {

@@ -6,6 +6,7 @@ import { fetchSpeech } from '../services/geminiService';
 interface AnswerCarouselProps {
   answers: WisdomResponse[];
   language: Language;
+  logoUrl?: string;
 }
 
 // --- Audio Helper Functions for Raw PCM ---
@@ -41,7 +42,7 @@ function base64ToUint8Array(base64: string) {
     return source;
   }
 
-const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) => {
+const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logoUrl }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -61,18 +62,18 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
         setIsLoadingAudio(true);
         const base64Audio = await fetchSpeech(text);
         if (base64Audio) {
+            const source = await playRawAudio(base64Audio);
             setIsLoadingAudio(false);
             setIsPlaying(true);
-            const source = await playRawAudio(base64Audio);
             source.onended = () => setIsPlaying(false);
         } else {
-            throw new Error("No audio data returned");
+            throw new Error("Empty audio data");
         }
     } catch (error) {
-        console.error("Audio failed", error);
+        console.error("Audio playback error:", error);
         setIsLoadingAudio(false);
         setIsPlaying(false);
-        alert("Could not generate audio for this answer.");
+        alert("Audio unavailable for this answer. Please try another.");
     }
   };
 
@@ -110,7 +111,7 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
             className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 flex-shrink-0 ${
               currentIndex === idx
                 ? 'bg-orange-600 text-white'
-                : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
+                : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
             }`}
           >
             {ans.persona}
@@ -119,9 +120,9 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
       </div>
 
       {/* Card */}
-      <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-100 min-h-[300px] flex flex-col">
+      <div className="relative bg-white dark:bg-stone-900 rounded-3xl shadow-xl overflow-hidden border border-stone-100 dark:border-stone-800 min-h-[300px] flex flex-col transition-colors duration-300">
         {/* Card Header */}
-        <div className="bg-indigo-900 px-6 py-4 flex justify-between items-center z-10 relative">
+        <div className="bg-indigo-900 dark:bg-indigo-950 px-6 py-4 flex justify-between items-center z-10 relative">
             <div>
                 <h3 className="text-white font-bold text-lg flex items-center gap-2">
                     <Icons.Sparkles className="w-4 h-4 text-yellow-400" />
@@ -129,32 +130,43 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
                 </h3>
                 <p className="text-indigo-200 text-xs">{currentAnswer.modelName}</p>
             </div>
-            <div className="text-indigo-300 text-xs font-mono bg-indigo-800 px-2 py-1 rounded">
+            <div className="text-indigo-300 text-xs font-mono bg-indigo-800 dark:bg-indigo-900 px-2 py-1 rounded">
                 AI Generated
             </div>
         </div>
 
         {/* Content */}
         <div className="p-6 flex-grow flex items-center justify-center relative z-10">
-            <p className="text-xl text-stone-800 leading-relaxed font-medium text-center">
+            <p className="text-xl text-stone-800 dark:text-stone-100 leading-relaxed font-medium text-center pb-8">
                 {currentAnswer.content}
             </p>
         </div>
 
-        {/* Watermark */}
+        {/* Watermark Logo (Bottom Right) */}
+        {logoUrl && (
+            <div className="absolute bottom-16 right-4 z-20 opacity-90">
+                <img 
+                    src={logoUrl} 
+                    alt="Logo" 
+                    className="w-12 h-12 rounded-2xl shadow-sm object-cover" 
+                />
+            </div>
+        )}
+
+        {/* Background Watermark Text */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-            <span className="text-5xl font-extrabold text-stone-100 uppercase -rotate-12 opacity-50 select-none">
+            <span className="text-5xl font-extrabold text-stone-100 dark:text-stone-800 uppercase -rotate-12 opacity-50 select-none">
                 IndicWisdom
             </span>
         </div>
 
         {/* Action Bar */}
-        <div className="border-t border-stone-100 p-4 bg-stone-50 flex justify-between items-center z-10 relative">
+        <div className="border-t border-stone-100 dark:border-stone-800 p-4 bg-stone-50 dark:bg-stone-950 flex justify-between items-center z-10 relative transition-colors duration-300">
              <button
                 onClick={() => handleSpeak(currentAnswer.content)}
                 disabled={isLoadingAudio || isPlaying}
                 className={`flex items-center space-x-2 transition-colors ${
-                    isLoadingAudio || isPlaying ? 'text-orange-400' : 'text-stone-600 hover:text-orange-600'
+                    isLoadingAudio || isPlaying ? 'text-orange-400' : 'text-stone-600 dark:text-stone-400 hover:text-orange-600 dark:hover:text-orange-500'
                 }`}
              >
                  {isLoadingAudio ? (
@@ -169,7 +181,7 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
 
              <button
                 onClick={() => handleShare(currentAnswer.content)}
-                className="flex items-center space-x-2 text-stone-600 hover:text-green-600 transition-colors"
+                className="flex items-center space-x-2 text-stone-600 dark:text-stone-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
              >
                  <Icons.Share2 className="w-5 h-5" />
                  <span className="text-sm font-medium">Share</span>
@@ -178,11 +190,11 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language }) =>
       </div>
 
       {/* Navigation Arrows */}
-      <div className="flex justify-between mt-4 px-4 text-stone-400">
-        <button onClick={handlePrev} className="hover:text-stone-800">
+      <div className="flex justify-between mt-4 px-4 text-stone-400 dark:text-stone-500">
+        <button onClick={handlePrev} className="hover:text-stone-800 dark:hover:text-stone-200">
             Prev
         </button>
-        <button onClick={handleNext} className="hover:text-stone-800">
+        <button onClick={handleNext} className="hover:text-stone-800 dark:hover:text-stone-200">
             Next
         </button>
       </div>

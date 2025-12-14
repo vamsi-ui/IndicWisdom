@@ -1,19 +1,51 @@
-import { GoogleGenAI, Type, Schema, Modality } from '@google/genai';
+import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { WisdomResponse } from '../types';
 
-// Initialize the client with the API key from environment variables
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get a fresh client instance with the latest key
+const getAIClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+/**
+ * Generates an app logo using Gemini 2.5 Flash Image (Free tier friendly).
+ */
+export const generateAppLogo = async (): Promise<string> => {
+  try {
+    const ai = getAIClient();
+    // Prompt refined for cleaner edges and better UI integration
+    const prompt = 'A professional mobile app logo for "IndicWisdom". A stylized, minimalist orange lotus flower or diya lamp icon. Vector art style, flat design, high contrast, completely isolated on a pure white background. No borders, no shadows, no text.';
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: prompt }],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "1:1",
+        }
+      },
+    });
+
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    throw new Error("No image data found in response");
+  } catch (error) {
+    console.error('Logo generation failed:', error);
+    throw error;
+  }
+};
 
 /**
  * Generates wisdom responses in the target Indic language.
- * To optimize for speed and reduce API round-trips, we ask Gemini to
- * generate all 5 persona responses in a single JSON call.
  */
 export const fetchWisdom = async (
   query: string,
   languageName: string
 ): Promise<WisdomResponse[]> => {
   try {
+    const ai = getAIClient();
     const prompt = `
       User Query: "${query}"
       Target Language: ${languageName}
@@ -64,7 +96,6 @@ export const fetchWisdom = async (
     const jsonText = result.text || '{ "responses": [] }';
     const parsed = JSON.parse(jsonText);
     
-    // Map the generic output to our UI friendly structure
     return parsed.responses.map((r: any) => {
         let displayModel = "Gemini Flash";
         if (r.persona === "Logical") displayModel = "GPT-4o Mini (Simulated)";
@@ -87,24 +118,32 @@ export const fetchWisdom = async (
 
 /**
  * Generates speech audio from text using Gemini TTS.
- * Returns a Base64 string of raw PCM audio data.
  */
 export const fetchSpeech = async (text: string): Promise<string | undefined> => {
     try {
+        const ai = getAIClient();
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ parts: [{ text: text }] }],
             config: {
-              responseModalities: [Modality.AUDIO],
+              // Use string literal 'AUDIO' to avoid Enum import issues
+              responseModalities: ['AUDIO'], 
               speechConfig: {
                   voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' }, // 'Kore' is a good general purpose voice
+                    prebuiltVoiceConfig: { voiceName: 'Kore' },
                   },
               },
             },
           });
           
-          return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          
+          if (!audioData) {
+            console.warn("TTS API response structure:", JSON.stringify(response, null, 2));
+            throw new Error("API returned success but no inline audio data found.");
+          }
+          
+          return audioData;
     } catch (error) {
         console.error("Error generating speech:", error);
         throw new Error("Could not generate audio.");
