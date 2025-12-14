@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Icons, APP_COLORS } from '../constants';
+import React, { useState, useCallback, useRef } from 'react';
+import { Icons } from '../constants';
 import { Language } from '../types';
 
 interface VoiceInputProps {
@@ -17,7 +17,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ selectedLanguage, onTranscript,
     if (isProcessing) return;
 
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+      alert('Speech recognition is not supported in this browser.');
       return;
     }
 
@@ -52,12 +52,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ selectedLanguage, onTranscript,
       }
     };
 
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      setIsListening(false);
-      setInterimText('');
-    };
-
     recognition.onend = () => {
       setIsListening(false);
       setInterimText('');
@@ -72,37 +66,38 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ selectedLanguage, onTranscript,
     }
   }, []);
 
-  // Handle touch interactions for "Push to Talk" feel
   return (
-    <div className="flex flex-col items-center justify-center w-full my-8">
-       {/* Live Transcription Overlay */}
-      <div className={`h-8 text-lg font-medium text-orange-700 dark:text-orange-400 transition-opacity duration-300 ${isListening ? 'opacity-100' : 'opacity-0'}`}>
-        {interimText || (isListening ? 'Listening...' : '')}
-      </div>
+    <div className="flex flex-col items-center justify-center w-full">
+       {/* Live Transcription Floating Pill */}
+      {isListening && (
+          <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm whitespace-nowrap z-50 animate-fade-in-up backdrop-blur-sm">
+             {interimText || 'Listening...'}
+          </div>
+      )}
 
-      <button
-        className={`relative z-10 flex items-center justify-center w-20 h-20 rounded-full shadow-xl transition-all duration-200 transform active:scale-95 ${
-          isListening ? 'bg-red-500 mic-active text-white' : 'bg-orange-500 text-white hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
-        onMouseDown={startListening}
-        onMouseUp={stopListening}
-        onTouchStart={(e) => {
-          e.preventDefault(); // Prevent ghost clicks
-          startListening();
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          stopListening();
-        }}
-        disabled={isProcessing}
-        aria-label="Hold to speak"
-      >
-        <Icons.Mic className="w-8 h-8" />
-      </button>
-      
-      <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
-        {isProcessing ? 'Processing wisdom...' : 'Hold to Speak'}
-      </p>
+      {/* Mic Trigger - Compact for Mobile Bottom Bar */}
+      <div className="flex justify-center items-center gap-3">
+        <p className="text-xs font-medium text-stone-400">Tap to speak</p>
+        <button
+            className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-200 transform active:scale-90 ${
+            isListening ? 'bg-red-500 shadow-lg shadow-red-500/50 text-white animate-pulse' : 'bg-orange-100 dark:bg-stone-800 text-orange-600 dark:text-orange-400'
+            } disabled:opacity-50`}
+            onMouseDown={startListening}
+            onMouseUp={stopListening}
+            onTouchStart={(e) => {
+            e.preventDefault(); 
+            startListening();
+            }}
+            onTouchEnd={(e) => {
+            e.preventDefault();
+            stopListening();
+            }}
+            disabled={isProcessing}
+            aria-label="Hold to speak"
+        >
+            <Icons.Mic className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 };

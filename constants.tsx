@@ -17,6 +17,47 @@ export const APP_COLORS = {
 
 // Icons
 export const Icons = {
+  // The Interactive Guide "Arya"
+  Sage: ({ className, emotion = 'neutral' }: { className?: string, emotion?: 'neutral' | 'happy' | 'thinking' | 'listening' }) => (
+    <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Halo/Aura */}
+      <circle cx="50" cy="50" r="48" className="stroke-orange-200 dark:stroke-orange-900" strokeWidth="2" strokeDasharray="4 4" />
+      <circle cx="50" cy="50" r="42" className="fill-stone-100 dark:fill-stone-800" />
+      
+      {/* Face Base */}
+      <path d="M25 50C25 65 35 80 50 80C65 80 75 65 75 50" className="stroke-stone-800 dark:stroke-stone-200" strokeWidth="3" strokeLinecap="round"/>
+      
+      {/* Eyes */}
+      {emotion === 'thinking' ? (
+        <>
+           <path d="M35 45L45 45" className="stroke-stone-800 dark:stroke-stone-200" strokeWidth="3" strokeLinecap="round"/>
+           <path d="M55 45L65 45" className="stroke-stone-800 dark:stroke-stone-200" strokeWidth="3" strokeLinecap="round"/>
+        </>
+      ) : emotion === 'listening' ? (
+        <>
+           <circle cx="40" cy="45" r="3" className="fill-orange-500 animate-pulse"/>
+           <circle cx="60" cy="45" r="3" className="fill-orange-500 animate-pulse delay-75"/>
+        </>
+      ) : (
+        <>
+           <circle cx="40" cy="45" r="3" className="fill-stone-800 dark:fill-stone-200"/>
+           <circle cx="60" cy="45" r="3" className="fill-stone-800 dark:fill-stone-200"/>
+        </>
+      )}
+
+      {/* Mouth */}
+      {emotion === 'happy' ? (
+          <path d="M40 60Q50 65 60 60" className="stroke-stone-800 dark:stroke-stone-200" strokeWidth="3" strokeLinecap="round"/>
+      ) : emotion === 'thinking' ? (
+          <circle cx="50" cy="65" r="2" className="fill-stone-800 dark:fill-stone-200"/>
+      ) : (
+          <path d="M42 62Q50 62 58 62" className="stroke-stone-800 dark:stroke-stone-200" strokeWidth="3" strokeLinecap="round"/>
+      )}
+
+      {/* Tika (Forehead mark) */}
+      <path d="M50 25V35" className="stroke-red-500" strokeWidth="3" strokeLinecap="round"/>
+    </svg>
+  ),
   Mic: (props: React.SVGProps<SVGSVGElement>) => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
