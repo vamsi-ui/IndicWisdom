@@ -1,0 +1,7 @@
+{
+  "name": "IndicWisdom Web",
+  "description": "A multi-modal AI wisdom app for Indic languages using Gemini models.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

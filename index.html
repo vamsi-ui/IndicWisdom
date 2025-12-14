@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>IndicWisdom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Custom scrollbar hiding for clean carousel */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      /* Pulse animation for mic */
+      @keyframes ripple {
+        0% {
+          box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 20px rgba(234, 88, 12, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
+        }
+      }
+      .mic-active {
+        animation: ripple 1.5s infinite;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0"
+  }
+}
+</script>
+</head>
+  <body class="bg-stone-50 text-stone-900 antialiased">
+    <div id="root"></div>
+  </body>
+</html>
