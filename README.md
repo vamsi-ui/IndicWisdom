@@ -99,9 +99,20 @@ The app answers questions regarding lifestyle, Indian mythology, and culture by 
         BASE_URL="your_backend_url"
         ```
 
-4.  **Build and Run:**
-    * Open in Android Studio Ladybug (or newer).
-    * Sync Gradle and Run on Emulator/Device.
+4.  **Build and Run (Android):**
+    *   **Install Dependencies:** `npm install`
+    *   **Build Components:** `npm run build`
+    *   **Setup Android:**
+        ```bash
+        npx cap add android
+        npx cap sync
+        ```
+    *   **Open in Android Studio:**
+        ```bash
+        npx cap open android
+        ```
+    *   Click the "Run" button (Play icon) in Android Studio to launch on Emulator/Device.
+    *   *Note:* Ensure you have copied `.env.example` to `.env` and added your API key.
 
 ---
 
