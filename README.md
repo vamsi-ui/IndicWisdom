@@ -1,6 +1,4 @@
-Here is the complete **README.md** content. You can copy the code block below and paste it directly into your GitHub repository.
 
-````markdown
 # 🕉️ IndicWisdom AI
 
 **A Native Android Application for Multilingual Lifestyle & Mythology Q&A**
