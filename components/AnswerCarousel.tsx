@@ -11,41 +11,42 @@ interface AnswerCarouselProps {
 
 // --- Audio Helper Functions for Raw PCM ---
 function base64ToUint8Array(base64: string) {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
   }
-  
-  async function playRawAudio(base64Data: string) {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-    const pcmData = base64ToUint8Array(base64Data);
-    
-    // Convert 16-bit PCM to float [-1, 1]
-    const int16Data = new Int16Array(pcmData.buffer);
-    const float32Data = new Float32Array(int16Data.length);
-    for (let i = 0; i < int16Data.length; i++) {
-        float32Data[i] = int16Data[i] / 32768.0;
-    }
-  
-    const buffer = audioContext.createBuffer(1, float32Data.length, 24000);
-    buffer.copyToChannel(float32Data, 0);
-  
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start(0);
-    
-    return source;
+  return bytes;
+}
+
+async function playRawAudio(base64Data: string) {
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+  const pcmData = base64ToUint8Array(base64Data);
+
+  // Convert 16-bit PCM to float [-1, 1]
+  const int16Data = new Int16Array(pcmData.buffer);
+  const float32Data = new Float32Array(int16Data.length);
+  for (let i = 0; i < int16Data.length; i++) {
+    float32Data[i] = int16Data[i] / 32768.0;
   }
+
+  const buffer = audioContext.createBuffer(1, float32Data.length, 24000);
+  buffer.copyToChannel(float32Data, 0);
+
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioContext.destination);
+  source.start(0);
+
+  return source;
+}
 
 const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logoUrl }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % answers.length);
@@ -59,40 +60,67 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
     if (isLoadingAudio || isPlaying) return;
 
     try {
-        setIsLoadingAudio(true);
-        const base64Audio = await fetchSpeech(text);
-        if (base64Audio) {
-            const source = await playRawAudio(base64Audio);
-            setIsLoadingAudio(false);
-            setIsPlaying(true);
-            source.onended = () => setIsPlaying(false);
-        } else {
-            throw new Error("Empty audio data");
-        }
-    } catch (error) {
-        console.error("Audio playback error:", error);
+      setIsLoadingAudio(true);
+      const base64Audio = await fetchSpeech(text);
+      if (base64Audio) {
+        const source = await playRawAudio(base64Audio);
         setIsLoadingAudio(false);
-        setIsPlaying(false);
-        alert("Audio unavailable for this answer. Please try another.");
+        setIsPlaying(true);
+        source.onended = () => setIsPlaying(false);
+      } else {
+        throw new Error("Empty audio data");
+      }
+    } catch (error) {
+      console.error("Audio playback error:", error);
+      setIsLoadingAudio(false);
+      setIsPlaying(false);
+      alert("Audio unavailable for this answer. Please try another.");
     }
   };
 
-  const handleShare = async (text: string) => {
-    const shareData = {
-      title: 'IndicWisdom',
-      text: `${text}\n\n- Shared via IndicWisdom App`,
-      url: window.location.href,
-    };
+  const handleShareImage = async () => {
+    if (!cardRef.current) return;
+
+    // @ts-ignore
+    if (!window.html2canvas) {
+      // Fallback to text share if script failed
+      const text = answers[currentIndex].content;
+      try {
+        await navigator.share({ title: 'IndicWisdom', text: text, url: window.location.href });
+      } catch { navigator.clipboard.writeText(text); alert("Copied text!"); }
+      return;
+    }
 
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.text);
-        alert('Copied to clipboard!');
-      }
+      // @ts-ignore
+      const canvas = await window.html2canvas(cardRef.current, {
+        scale: 2, // High res
+        backgroundColor: null, // Transparent corners if any
+        logging: false,
+        useCORS: true
+      });
+
+      canvas.toBlob(async (blob: Blob | null) => {
+        if (!blob) return;
+        const file = new File([blob], 'indic-wisdom-share.png', { type: 'image/png' });
+
+        // Try native share with files
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'IndicWisdom Card',
+            text: 'Shared from IndicWisdom App'
+          });
+        } else {
+          // Fallback: Download the image
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = 'indic-wisdom-card.png';
+          a.click();
+        }
+      });
     } catch (err) {
-      console.error('Error sharing:', err);
+      console.error("Share failed", err);
     }
   };
 
@@ -103,99 +131,101 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
   return (
     <div className="w-full max-w-md mx-auto mt-6">
       {/* Tabs / Indicators */}
-      <div className="flex justify-center space-x-2 mb-4 overflow-x-auto no-scrollbar py-2">
+      <div className="flex justify-center flex-wrap gap-2 mb-6 px-4">
         {answers.map((ans, idx) => (
           <button
             key={idx}
             onClick={() => setCurrentIndex(idx)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors duration-200 flex-shrink-0 ${
-              currentIndex === idx
-                ? 'bg-orange-600 text-white'
-                : 'bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-300 dark:hover:bg-stone-700'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 transform hover:scale-105 ${currentIndex === idx
+              ? 'bg-indic-teal text-white shadow-lg ring-2 ring-indic-gold/50'
+              : 'bg-white dark:bg-stone-800 text-stone-500 border border-stone-200 dark:border-stone-700 hover:border-indic-teal'
+              }`}
           >
             {ans.persona}
           </button>
         ))}
       </div>
 
-      {/* Card */}
-      <div className="relative bg-white dark:bg-stone-900 rounded-3xl shadow-xl overflow-hidden border border-stone-100 dark:border-stone-800 min-h-[300px] flex flex-col transition-colors duration-300">
-        {/* Card Header */}
-        <div className="bg-indigo-900 dark:bg-indigo-950 px-6 py-4 flex justify-between items-center z-10 relative">
-            <div>
-                <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                    <Icons.Sparkles className="w-4 h-4 text-yellow-400" />
-                    {currentAnswer.persona} Answer
-                </h3>
-                <p className="text-indigo-200 text-xs">{currentAnswer.modelName}</p>
-            </div>
-            <div className="text-indigo-300 text-xs font-mono bg-indigo-800 dark:bg-indigo-900 px-2 py-1 rounded">
-                AI Generated
-            </div>
-        </div>
+      {/* Premium Card Design */}
+      <div className="relative mx-4 perspective-1000">
+        <div className="absolute -inset-1 bg-gradient-to-br from-indic-teal/30 to-indic-gold/30 rounded-[2rem] blur-lg opacity-70"></div>
 
-        {/* Content */}
-        <div className="p-6 flex-grow flex items-center justify-center relative z-10">
-            <p className="text-xl text-stone-800 dark:text-stone-100 leading-relaxed font-medium text-center pb-8">
-                {currentAnswer.content}
+        <div ref={cardRef} className="relative bg-white dark:bg-stone-900 rounded-[1.8rem] overflow-hidden shadow-2xl border border-stone-100 dark:border-stone-800 transition-all duration-300">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-indic-blue to-stone-900 px-6 py-5 flex justify-between items-center z-10 relative overflow-hidden">
+            <div className="z-10">
+              <h3 className="text-white font-serif font-bold text-xl flex items-center gap-2 tracking-wide">
+                <Icons.Sparkles className="w-5 h-5 text-indic-gold" />
+                {currentAnswer.persona}
+              </h3>
+              <p className="text-indic-teal/80 text-xs mt-0.5 uppercase tracking-widest font-sans font-medium">{currentAnswer.modelName}</p>
+            </div>
+            {/* Decorative Circle */}
+            <div className="absolute right-0 top-0 w-24 h-24 bg-indic-teal/20 rounded-full blur-xl transform translate-x-8 -translate-y-8"></div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="p-8 min-h-[320px] max-h-[500px] overflow-y-auto flex flex-col items-center justify-center relative bg-gradient-to-b from-white to-stone-50 dark:from-stone-900 dark:to-stone-950">
+            {/* Quotation Marks */}
+            <div className="absolute top-6 left-6 text-indic-gold/20 text-6xl font-serif font-black z-0">“</div>
+
+            <p className="relative z-10 text-lg md:text-xl text-stone-700 dark:text-stone-200 leading-8 font-serif text-center first-letter:text-3xl first-letter:font-bold first-letter:text-indic-teal">
+              {currentAnswer.content}
             </p>
-        </div>
 
-        {/* Watermark Logo (Bottom Right) */}
-        {logoUrl && (
-            <div className="absolute bottom-16 right-4 z-20 opacity-90">
-                <img 
-                    src={logoUrl} 
-                    alt="Logo" 
-                    className="w-12 h-12 rounded-2xl shadow-sm object-cover" 
-                />
-            </div>
-        )}
+            <div className="mt-8 mb-4 w-12 h-1 bg-gradient-to-r from-transparent via-indic-gold to-transparent opacity-50"></div>
+          </div>
 
-        {/* Background Watermark Text */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-            <span className="text-5xl font-extrabold text-stone-100 dark:text-stone-800 uppercase -rotate-12 opacity-50 select-none">
-                IndicWisdom
-            </span>
-        </div>
+          {/* Watermark Logo */}
+          <div className="absolute bottom-20 right-6 z-20 opacity-20 pointer-events-none">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-16 h-16 object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          </div>
+          {/* Text Watermark */}
+          <div className="absolute bottom-4 left-0 right-0 text-center z-0 opacity-10">
+            <span className="text-sm font-bold tracking-[0.3em] text-indic-blue dark:text-stone-500 uppercase">IndicWisdom</span>
+          </div>
 
-        {/* Action Bar */}
-        <div className="border-t border-stone-100 dark:border-stone-800 p-4 bg-stone-50 dark:bg-stone-950 flex justify-between items-center z-10 relative transition-colors duration-300">
-             <button
-                onClick={() => handleSpeak(currentAnswer.content)}
-                disabled={isLoadingAudio || isPlaying}
-                className={`flex items-center space-x-2 transition-colors ${
-                    isLoadingAudio || isPlaying ? 'text-orange-400' : 'text-stone-600 dark:text-stone-400 hover:text-orange-600 dark:hover:text-orange-500'
+          {/* Action Bar - Glassmorphism */}
+          <div data-html2canvas-ignore className="relative z-20 border-t border-stone-100 dark:border-stone-800 p-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm flex justify-between items-center">
+            <button
+              onClick={() => handleSpeak(currentAnswer.content)}
+              disabled={isLoadingAudio || isPlaying}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-medium ${isLoadingAudio || isPlaying
+                ? 'bg-indic-teal/10 text-indic-teal'
+                : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-indic-teal/10 hover:text-indic-teal'
                 }`}
-             >
-                 {isLoadingAudio ? (
-                    <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                 ) : (
-                    <Icons.Volume2 className={`w-5 h-5 ${isPlaying ? 'animate-pulse' : ''}`} />
-                 )}
-                 <span className="text-sm font-medium">
-                    {isLoadingAudio ? 'Loading...' : isPlaying ? 'Playing...' : 'Listen'}
-                 </span>
-             </button>
+            >
+              {isLoadingAudio ? (
+                <div className="w-5 h-5 border-2 border-indic-teal border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Icons.Volume2 className={`w-5 h-5 ${isPlaying ? 'animate-pulse text-indic-teal' : ''}`} />
+              )}
+              <span className="text-sm">{isPlaying ? 'Playing...' : 'Listen'}</span>
+            </button>
 
-             <button
-                onClick={() => handleShare(currentAnswer.content)}
-                className="flex items-center space-x-2 text-stone-600 dark:text-stone-400 hover:text-green-600 dark:hover:text-green-500 transition-colors"
-             >
-                 <Icons.Share2 className="w-5 h-5" />
-                 <span className="text-sm font-medium">Share</span>
-             </button>
+            <button
+              onClick={handleShareImage}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indic-blue text-white font-medium shadow-md hover:shadow-lg hover:scale-105 transition-all active:scale-95"
+            >
+              <Icons.Share2 className="w-4 h-4" />
+              <span className="text-sm">Share Card</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Navigation Arrows */}
-      <div className="flex justify-between mt-4 px-4 text-stone-400 dark:text-stone-500">
-        <button onClick={handlePrev} className="hover:text-stone-800 dark:hover:text-stone-200">
-            Prev
+      <div className="flex justify-between items-center mt-6 px-8 text-stone-400 dark:text-stone-600 font-serif italic text-sm">
+        <button onClick={handlePrev} className="flex items-center gap-1 hover:text-indic-teal transition-colors">
+          ← Previous Wisdom
         </button>
-        <button onClick={handleNext} className="hover:text-stone-800 dark:hover:text-stone-200">
-            Next
+        <button onClick={handleNext} className="flex items-center gap-1 hover:text-indic-teal transition-colors">
+          Next Wisdom →
         </button>
       </div>
     </div>

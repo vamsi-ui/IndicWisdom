@@ -1,49 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>IndicWisdom</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              stone: {
-                950: '#0c0a09',
-              }
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>IndicWisdom</title>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Merriweather', 'serif'],
+          },
+          colors: {
+            stone: { 850: '#1c1917', 950: '#0c0a09' },
+            saffron: { 50: '#fff7ed', 100: '#ffedd5', 500: '#ea580c', 600: '#c2410c' },
+            indic: {
+              teal: '#2A9D8F',  /* From logo 'speech bubbles' */
+              blue: '#264653',  /* From logo text/trunk */
+              gold: '#E9C46A'   /* From logo accent */
+            }
+          },
+          animation: {
+            'fade-in-up': 'fadeInUp 0.6s ease-out forwards',
+            'float': 'float 3s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeInUp: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-5px)' },
             }
           }
         }
       }
-    </script>
-    <style>
-      /* Custom scrollbar hiding for clean carousel */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
+    }
+  </script>
+  <style>
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .dark .glass-panel {
+      background: rgba(28, 25, 23, 0.7);
+      /* Stone 850 */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Custom scrollbar hiding for clean carousel */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Mic Ripple */
+    @keyframes ripple {
+      0% {
+        box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.7);
       }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+
+      70% {
+        box-shadow: 0 0 0 15px rgba(234, 88, 12, 0);
       }
-      /* Pulse animation for mic */
-      @keyframes ripple {
-        0% {
-          box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.7);
-        }
-        70% {
-          box-shadow: 0 0 0 20px rgba(234, 88, 12, 0);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
-        }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
       }
-      .mic-active {
-        animation: ripple 1.5s infinite;
-      }
-    </style>
+    }
+
+    .mic-active {
+      animation: ripple 1.5s infinite;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -55,7 +104,10 @@
 }
 </script>
 </head>
-  <body class="bg-stone-50 text-stone-900 antialiased">
-    <div id="root"></div>
-  </body>
+
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

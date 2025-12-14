@@ -2,7 +2,11 @@ import { GoogleGenAI, Type, Schema } from '@google/genai';
 import { WisdomResponse } from '../types';
 
 // Helper to get a fresh client instance with the latest key
-const getAIClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAIClient = () => {
+  const key = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!key) throw new Error("Missing VITE_GEMINI_API_KEY in .env");
+  return new GoogleGenAI({ apiKey: key });
+};
 
 /**
  * Generates an app logo using Gemini 2.5 Flash Image (Free tier friendly).
@@ -12,7 +16,7 @@ export const generateAppLogo = async (): Promise<string> => {
     const ai = getAIClient();
     // Prompt refined for cleaner edges and better UI integration
     const prompt = 'A professional mobile app logo for "IndicWisdom". A stylized, minimalist orange lotus flower or diya lamp icon. Vector art style, flat design, high contrast, completely isolated on a pure white background. No borders, no shadows, no text.';
-    
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -40,79 +44,98 @@ export const generateAppLogo = async (): Promise<string> => {
 /**
  * Generates wisdom responses in the target Indic language.
  */
+import { fetchGroqResponse } from './groqService';
+
+/**
+ * Generates wisdom responses by querying multiple AI models in parallel (Gemini + Groq).
+ */
 export const fetchWisdom = async (
   query: string,
   languageName: string
 ): Promise<WisdomResponse[]> => {
   try {
     const ai = getAIClient();
-    const prompt = `
+
+    // 1. Define the Tasks for each model
+    // Gemini handles Factual (Flash) and Creative (Flash with creative prompt)
+    const geminiPrompt = `
       User Query: "${query}"
       Target Language: ${languageName}
       
-      Task:
-      1. Analyze the user's query.
-      2. Provide 5 distinct answers in the Target Language (${languageName}).
+      Provide 2 distinct answers in valid JSON format:
+      1. Persona "Factual": Concise, direct, fact-based.
+      2. Persona "Creative": Nuanced, storytelling, culturally rich.
+
+      SAFETY INSTRUCTION: Ensure all content is family-friendly, safe for all ages. strictly filter out hate speech, sexual content, or violence.
       
-      Personas:
-      1. "Factual": Concise, direct, fact-based answer (Act as Gemini Flash).
-      2. "Logical": Detailed, structured, educational explanation (Act as GPT-4o mini).
-      3. "Creative": Nuanced, storytelling, culturally rich answer (Act as Claude 3 Haiku).
-      4. "Philosophical": Deep, existential, rooted in ethics/dharma (Act as Llama 3).
-      5. "Witty": Clever, sharp, maybe a bit humorous or paradoxical (Act as Mistral Large).
-      
-      Return ONLY valid JSON.
+      Schema: { "responses": [ { "persona": string, "content": string } ] }
     `;
 
-    const responseSchema: Schema = {
-      type: Type.OBJECT,
-      properties: {
-        responses: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              persona: { type: Type.STRING, enum: ['Factual', 'Logical', 'Creative', 'Philosophical', 'Witty'] },
-              modelName: { type: Type.STRING },
-              content: { type: Type.STRING, description: `The answer in ${languageName}` },
-            },
-            required: ['persona', 'modelName', 'content'],
-          },
-        },
-      },
-      required: ['responses'],
-    };
-
-    const result = await ai.models.generateContent({
+    const geminiTask = ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
+      contents: geminiPrompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: responseSchema,
         temperature: 0.7,
       },
+    }).then(result => {
+      const json = JSON.parse(result.text || '{ "responses": [] }');
+      return json.responses.map((r: any) => ({
+        persona: r.persona,
+        modelName: "Gemini 2.5 Flash",
+        content: r.content
+      }));
+    }).catch(e => {
+      console.error("Gemini Task Failed", e);
+      return [];
     });
 
-    const jsonText = result.text || '{ "responses": [] }';
-    const parsed = JSON.parse(jsonText);
-    
-    return parsed.responses.map((r: any) => {
-        let displayModel = "Gemini Flash";
-        if (r.persona === "Logical") displayModel = "GPT-4o Mini (Simulated)";
-        if (r.persona === "Creative") displayModel = "Claude 3 Haiku (Simulated)";
-        if (r.persona === "Philosophical") displayModel = "Llama 3 70B (Simulated)";
-        if (r.persona === "Witty") displayModel = "Mistral Large (Simulated)";
-        
-        return {
-            persona: r.persona,
-            modelName: displayModel,
-            content: r.content
-        };
-    });
+    // Groq handles Llama 3 (Philosophical), Llama 3 (Witty), and Llama 3 (Logical)
+    // We launch these as individual fast requests
+    const llamaPhilTask = fetchGroqResponse(
+      query,
+      'llama-3.3-70b-versatile',
+      "You are a Philosophical Sage. Focus on ethics, dharma, and existential depth.",
+      languageName
+    ).then(content => ({ persona: 'Philosophical', modelName: 'Llama 3.3 70B (Groq)', content }));
 
-  } catch (error) {
+    const mixtralWittyTask = fetchGroqResponse(
+      query,
+      'llama-3.3-70b-versatile',
+      "You are a Witty Scholar. Be clever, sharp, and slightly humorous.",
+      languageName
+    ).then(content => ({ persona: 'Witty', modelName: 'Llama 3.3 70B (Groq)', content }));
+
+    const llamaLogicalTask = fetchGroqResponse(
+      query,
+      'llama-3.1-8b-instant',
+      "You are a Logical Professor. Break down the answer into structured points.",
+      languageName
+    ).then(content => ({ persona: 'Logical', modelName: 'Llama 3.1 8B (Groq)', content }));
+
+    // 2. Wait for all to finish
+    const [geminiResults, philResult, wittyResult, logicalResult] = await Promise.all([
+      geminiTask,
+      llamaPhilTask,
+      mixtralWittyTask,
+      llamaLogicalTask
+    ]);
+
+    // 3. Combine and Return
+    const allResponses = [
+      ...geminiResults,
+      philResult,
+      wittyResult,
+      logicalResult
+    ];
+
+    return allResponses;
+
+  } catch (error: any) {
     console.error('Error fetching wisdom:', error);
-    throw new Error('Failed to generate wisdom. Please try again.');
+    // Propagate the specific error message (e.g. Missing API Key) to the UI
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(msg); // Remove the generic wrapper
   }
 };
 
@@ -120,32 +143,32 @@ export const fetchWisdom = async (
  * Generates speech audio from text using Gemini TTS.
  */
 export const fetchSpeech = async (text: string): Promise<string | undefined> => {
-    try {
-        const ai = getAIClient();
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: text }] }],
-            config: {
-              // Use string literal 'AUDIO' to avoid Enum import issues
-              responseModalities: ['AUDIO'], 
-              speechConfig: {
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: 'Kore' },
-                  },
-              },
-            },
-          });
-          
-          const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-          
-          if (!audioData) {
-            console.warn("TTS API response structure:", JSON.stringify(response, null, 2));
-            throw new Error("API returned success but no inline audio data found.");
-          }
-          
-          return audioData;
-    } catch (error) {
-        console.error("Error generating speech:", error);
-        throw new Error("Could not generate audio.");
+  try {
+    const ai = getAIClient();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: text }] }],
+      config: {
+        // Use string literal 'AUDIO' to avoid Enum import issues
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+
+    const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (!audioData) {
+      console.warn("TTS API response structure:", JSON.stringify(response, null, 2));
+      throw new Error("API returned success but no inline audio data found.");
     }
+
+    return audioData;
+  } catch (error) {
+    console.error("Error generating speech:", error);
+    throw new Error("Could not generate audio.");
+  }
 }
