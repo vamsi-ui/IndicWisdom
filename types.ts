@@ -5,7 +5,7 @@ export interface Language {
 }
 
 export interface WisdomResponse {
-  persona: 'Factual' | 'Logical' | 'Creative' | 'Philosophical' | 'Witty';
+  persona: string;
   modelName: string;
   content: string;
   englishTranslation?: string; // Optional for debugging or user learning
