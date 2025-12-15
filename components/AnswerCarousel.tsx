@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react';
 import { WisdomResponse, Language } from '../types';
 import { Icons } from '../constants';
 import { fetchSpeech } from '../services/geminiService';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 
 interface AnswerCarouselProps {
   answers: WisdomResponse[];
@@ -61,9 +64,19 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
 
     try {
       setIsLoadingAudio(true);
-      const base64Audio = await fetchSpeech(text);
-      if (base64Audio) {
-        const source = await playRawAudio(base64Audio);
+      const audioData = await fetchSpeech(text);
+
+      if (audioData === 'NATIVE') {
+        // It's already playing via Native TTS
+        setIsLoadingAudio(false);
+        setIsPlaying(true);
+        // Simulate playing state duration based on length
+        setTimeout(() => setIsPlaying(false), Math.min(text.length * 100, 10000));
+        return;
+      }
+
+      if (audioData) {
+        const source = await playRawAudio(audioData);
         setIsLoadingAudio(false);
         setIsPlaying(true);
         source.onended = () => setIsPlaying(false);
@@ -74,53 +87,79 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
       console.error("Audio playback error:", error);
       setIsLoadingAudio(false);
       setIsPlaying(false);
-      alert("Audio unavailable for this answer. Please try another.");
+      alert("Audio unavailable to play.");
     }
   };
 
   const handleShareImage = async () => {
     if (!cardRef.current) return;
 
+    // Use html2canvas to snapshot the card
     // @ts-ignore
     if (!window.html2canvas) {
-      // Fallback to text share if script failed
       const text = answers[currentIndex].content;
       try {
-        await navigator.share({ title: 'IndicWisdom', text: text, url: window.location.href });
-      } catch { navigator.clipboard.writeText(text); alert("Copied text!"); }
+        await Share.share({
+          title: 'IndicWisdom',
+          text: text,
+          url: 'https://indicwisdom.app'
+        });
+      } catch (e) {
+        console.warn("Native share failed, fallback to clipboard", e);
+        navigator.clipboard.writeText(text); alert("Copied text!");
+      }
       return;
     }
 
     try {
       // @ts-ignore
       const canvas = await window.html2canvas(cardRef.current, {
-        scale: 2, // High res
-        backgroundColor: null, // Transparent corners if any
+        scale: 2,
+        backgroundColor: null,
         logging: false,
         useCORS: true
       });
 
-      canvas.toBlob(async (blob: Blob | null) => {
-        if (!blob) return;
-        const file = new File([blob], 'indic-wisdom-share.png', { type: 'image/png' });
+      const base64Data = canvas.toDataURL('image/png');
 
-        // Try native share with files
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'IndicWisdom Card',
-            text: 'Shared from IndicWisdom App'
-          });
-        } else {
-          // Fallback: Download the image
-          const a = document.createElement('a');
-          a.href = canvas.toDataURL('image/png');
-          a.download = 'indic-wisdom-card.png';
-          a.click();
-        }
-      });
+      if (Capacitor.isNativePlatform()) {
+        // Native Share Logic (Filesystem + Share)
+        const fileName = `wisdom_card_${Date.now()}.png`;
+        const savedFile = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data.split(',')[1], // Remove 'data:image/png;base64,'
+          directory: Directory.Cache
+        });
+
+        await Share.share({
+          title: 'IndicWisdom Card',
+          text: 'Here is what the spirits said...',
+          files: [savedFile.uri]
+        });
+
+      } else {
+        // Web Share / Download Logic
+        canvas.toBlob(async (blob: Blob | null) => {
+          if (!blob) return;
+          const file = new File([blob], 'indic-wisdom-share.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'IndicWisdom Card',
+              text: 'Shared from IndicWisdom App'
+            });
+          } else {
+            const a = document.createElement('a');
+            a.href = base64Data;
+            a.download = 'indic-wisdom-card.png';
+            a.click();
+          }
+        });
+      }
+
     } catch (err) {
       console.error("Share failed", err);
+      alert("Could not share image.");
     }
   };
 

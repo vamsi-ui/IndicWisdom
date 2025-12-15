@@ -72,7 +72,7 @@ export const fetchWisdom = async (
     `;
 
     const geminiTask = ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: geminiPrompt,
       config: {
         responseMimeType: 'application/json',
@@ -82,7 +82,7 @@ export const fetchWisdom = async (
       const json = JSON.parse(result.text || '{ "responses": [] }');
       return json.responses.map((r: any) => ({
         persona: r.persona,
-        modelName: "Gemini 2.5 Flash",
+        modelName: "Gemini 1.5 Flash",
         content: r.content
       }));
     }).catch(e => {
@@ -140,35 +140,35 @@ export const fetchWisdom = async (
 };
 
 /**
- * Generates speech audio from text using Gemini TTS.
+ * Generates speech audio using Native SpeechSynthesis (Android TTS)
+ * Returns empty because we play it directly or return a status.
+ * But AnswerCarousel expects a base64. 
+ * We will modify this to RETURN NULL and handle the playing HERE using window.speechSynthesis.
+ * 
+ * Update: Actually, since we need to play it, we can just use the native API right here.
+ * But the Carousel logic expects a BLOB/Base64 to decode.
+ * We must update this function signature to maybe just PLAY it and return void? 
+ * No, let's keep it simple: WE GENERATE A FAKE BASE64 or return a special flag.
+ * 
+ * BETTER: Let's just create a helper that returns null, and AnswerCarousel handles the null by using speak() API.
+ * 
+ * Wait, to keep interface clean:
+ * Let's change AnswerCarousel usage.
+ * But here, I will just implement the fetchSpeech to throw error if we rely on AI TTS, 
+ * OR I can try to use a free TTS API? 
+ * NO, Native Android TTS via window.speechSynthesis is best.
+ * 
+ * I will modify this function to use window.speechSynthesis and return "NATIVE_TTS_HANDLED".
  */
 export const fetchSpeech = async (text: string): Promise<string | undefined> => {
-  try {
-    const ai = getAIClient();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text: text }] }],
-      config: {
-        // Use string literal 'AUDIO' to avoid Enum import issues
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' },
-          },
-        },
-      },
-    });
-
-    const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-    if (!audioData) {
-      console.warn("TTS API response structure:", JSON.stringify(response, null, 2));
-      throw new Error("API returned success but no inline audio data found.");
-    }
-
-    return audioData;
-  } catch (error) {
-    console.error("Error generating speech:", error);
-    throw new Error("Could not generate audio.");
+  // Use Native Browser/Android TTS
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Try to find a Hindi or Indic voice if available, else default
+    // utterance.lang = 'hi-IN'; // We could pass language code here too
+    window.speechSynthesis.cancel(); // Stop previous
+    window.speechSynthesis.speak(utterance);
+    return "NATIVE"; // Signal to UI that we handled it
   }
+  throw new Error("TTS not supported on this device.");
 }

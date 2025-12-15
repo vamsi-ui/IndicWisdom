@@ -212,7 +212,7 @@ const MainApp = ({
     return (
         <>
             {/* --- Mobile Header --- */}
-            <header className="flex-none bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-100 dark:border-stone-800 px-4 py-3 flex justify-between items-center z-20">
+            <header className="flex-none bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-100 dark:border-stone-800 px-4 py-3 pt-[calc(1rem+env(safe-area-inset-top))] flex justify-between items-center z-20">
                 <div className="flex items-center gap-3">
                     {/* Rounded Logo with subtle border */}
                     <div className="h-10 w-10 rounded-full bg-white dark:bg-stone-800 shadow-sm border border-stone-200 dark:border-stone-700 overflow-hidden flex items-center justify-center">
@@ -372,8 +372,8 @@ const LanguageSelector = ({ selected, onChange }: { selected: any, onChange: (l:
                                 key={lang.code}
                                 onClick={() => { onChange(lang); setIsOpen(false); }}
                                 className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors ${selected.code === lang.code
-                                        ? 'text-indic-teal dark:text-indic-gold font-bold bg-indic-teal/5 dark:bg-indic-gold/5'
-                                        : 'text-stone-600 dark:text-stone-300'
+                                    ? 'text-indic-teal dark:text-indic-gold font-bold bg-indic-teal/5 dark:bg-indic-gold/5'
+                                    : 'text-stone-600 dark:text-stone-300'
                                     }`}
                             >
                                 <span className="font-serif text-sm">{lang.nativeName}</span>

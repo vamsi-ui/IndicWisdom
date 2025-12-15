@@ -1,6 +1,8 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icons } from '../constants';
 import { Language } from '../types';
+import { Capacitor } from '@capacitor/core';
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 
 interface VoiceInputProps {
   selectedLanguage: Language;
@@ -11,116 +13,110 @@ interface VoiceInputProps {
 const VoiceInput: React.FC<VoiceInputProps> = ({ selectedLanguage, onTranscript, isProcessing }) => {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
-  const [recognition, setRecognition] = useState<any>(null);
+  const textRef = React.useRef(''); // Store latest text to avoid closure staleness
+  const [hasPermission, setHasPermission] = useState(false);
 
-  // Initialize Speech Recognition on Mount
+  // Check Permissions on Mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recog = new SpeechRecognition();
-      recog.continuous = true; // Allow long pauses
-      recog.interimResults = true;
-      setRecognition(recog);
-    }
+    const checkPerms = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const status = await SpeechRecognition.checkPermissions();
+          setHasPermission(status.speechRecognition === 'granted');
+        } catch (e) {
+          console.warn("Permission check failed", e);
+        }
+      }
+    };
+    checkPerms();
   }, []);
 
-  const toggleListening = useCallback(() => {
-    if (isProcessing || !recognition) return;
+  const startListening = async () => {
+    setInterimText('');
+    textRef.current = '';
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const status = await SpeechRecognition.requestPermissions();
+        if (status.speechRecognition !== 'granted') return;
 
-    if (isListening) {
-      recognition.stop();
-      setIsListening(false);
-    } else {
-      recognition.lang = selectedLanguage.code;
+        await SpeechRecognition.start({
+          language: selectedLanguage.code,
+          maxResults: 2,
+          prompt: "Speak your question...",
+          partialResults: true,
+          popup: false,
+        });
 
-      recognition.onstart = () => {
         setIsListening(true);
-        setInterimText('');
-      };
 
-      recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
+        SpeechRecognition.addListener('partialResults', (data: any) => {
+          const text = data.matches && data.matches.length > 0 ? data.matches[0] : '';
+          if (text) {
+            setInterimText(text);
+            textRef.current = text;
           }
-        }
-        setInterimText(interimTranscript);
-        if (finalTranscript) {
-          // Concatenate or just send final directly? 
-          // For now, let's send final chunks as they come if we want live, 
-          // BUT user asked for "Send with live transcription" implying manual send or auto send on stop?
-          // Let's accumulate? No, standard behavior is auto-submit or manual submit.
-          // User said "Start recording button and stop recording button to record voice and send".
-          // So we should capture ALL final results into a buffer and send on STOP.
-          // BUT `onTranscript` in App.tsx triggers submission immediately.
-          // We should probably just trigger onTranscript on every final result for now to keep it simple 
-          // UNLESS we want to accumulate. 
-          // Given the prompt "note the pause... send with live transcription", 
-          // let's send the final result immediately like a stream of thought?
-          // actually, "Send" implies a discrete action.
-          // Let's call onTranscript with the final chunk. The App handles it.
-          onTranscript(finalTranscript);
-        }
-      };
+        });
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech Error", event.error);
-        if (event.error !== 'no-speech') {
-          setIsListening(false);
-        }
-      };
+      } else {
+        // Web Fallback
+        alert("This feature is optimized for the Android App. On web, standard input is preferred.");
+      }
+    } catch (e) {
+      console.error("Start Error:", e);
+      setIsListening(false);
+    }
+  };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+  const stopAndSend = async () => {
+    // 1. Capture text immediately
+    const textToSend = textRef.current;
 
-      try {
-        recognition.start();
-      } catch (e) {
-        console.warn("Recognition already started", e);
+    // 2. Stop Listening (Safely)
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await SpeechRecognition.stop();
+        await SpeechRecognition.removeAllListeners();
+      }
+    } catch (e) {
+      console.warn("Stop Error (Ignored):", e);
+    } finally {
+      // 3. Always Reset State & Send
+      setIsListening(false);
+      if (textToSend && textToSend.trim()) {
+        onTranscript(textToSend);
       }
     }
-  }, [isListening, recognition, selectedLanguage, isProcessing, onTranscript]);
-
-
-  if (!recognition) {
-    return null; // or fallback UI
-  }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full">
-      {/* Live Transcription Floating Pill */}
-      {(isListening || interimText) && (
-        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm whitespace-nowrap z-50 animate-fade-in-up backdrop-blur-sm shadow-lg border border-white/10">
-          <span className="font-mono text-red-400 mr-2">●</span>
-          {interimText || 'Listening...'}
+    <div className="flex flex-col items-center justify-center w-full mb-2">
+      {/* Live Transcript Display */}
+      {isListening && (
+        <div className="mb-4 px-4 py-2 bg-stone-900/90 text-white rounded-2xl text-center min-w-[200px] animate-fade-in-up">
+          <span className="text-xs text-stone-400 uppercase tracking-widest block mb-1">Live Transcript</span>
+          <p className="text-lg font-medium">{interimText || "Listening..."}</p>
         </div>
       )}
 
-      {/* Mic Trigger */}
-      <div className="flex flex-col items-center gap-2">
-        <p className={`text-xs font-bold uppercase tracking-wider transition-colors ${isListening ? 'text-red-500' : 'text-stone-400'}`}>
-          {isListening ? 'Tap to Send' : 'Tap to Speak'}
-        </p>
+      {/* Control Buttons */}
+      {!isListening ? (
         <button
-          className={`flex items-center justify-center w-20 h-20 rounded-full transition-all duration-300 transform shadow-2xl relative z-10 ${isListening
-            ? 'bg-red-500 text-white scale-110 ring-4 ring-red-200 dark:ring-red-900 animate-pulse'
-            : 'bg-gradient-to-br from-indic-teal to-indic-blue dark:from-indic-gold dark:to-orange-500 text-white dark:text-stone-900 ring-4 ring-stone-100 dark:ring-stone-800 hover:scale-105 active:scale-95 hover:shadow-indic-teal/50 dark:hover:shadow-indic-gold/50'
-            } disabled:opacity-50 disabled:grayscale`}
-          onClick={toggleListening}
+          onClick={startListening}
           disabled={isProcessing}
+          className="flex items-center gap-2 bg-indic-teal text-white px-6 py-3 rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-all"
         >
-          {isListening ? (
-            <Icons.Send className="w-8 h-8 animate-pulse" /> // Show Send icon when listening to indicate "Stop & Send"
-          ) : (
-            <Icons.Mic className="w-8 h-8" />
-          )}
+          <Icons.Mic className="w-5 h-5" />
+          <span>Start Listening</span>
         </button>
-      </div>
+      ) : (
+        <button
+          onClick={stopAndSend}
+          className="flex items-center gap-2 bg-red-500 text-white px-6 py-3 rounded-full font-bold shadow-lg animate-pulse hover:scale-105 active:scale-95 transition-all"
+        >
+          <div className="w-3 h-3 bg-white rounded-sm" />
+          <span>Stop & Send</span>
+        </button>
+      )}
     </div>
   );
 };
