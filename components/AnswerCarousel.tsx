@@ -64,7 +64,8 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
 
     try {
       setIsLoadingAudio(true);
-      const audioData = await fetchSpeech(text);
+      // Pass the current language code for correct TTS accent
+      const audioData = await fetchSpeech(text, language.code);
 
       if (audioData === 'NATIVE') {
         // It's already playing via Native TTS
@@ -188,8 +189,14 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
       {/* Premium Card Design */}
       <div className="relative mx-4 perspective-1000">
         <div className="absolute -inset-1 bg-gradient-to-br from-indic-teal/30 to-indic-gold/30 rounded-[2rem] blur-lg opacity-70"></div>
-
-        <div ref={cardRef} className="relative bg-white dark:bg-stone-900 rounded-[1.8rem] overflow-hidden shadow-2xl border border-stone-100 dark:border-stone-800 transition-all duration-300">
+        {/* Premium Card Design */}
+        <div
+          ref={cardRef}
+          className="relative bg-white/80 dark:bg-stone-900/60 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl border border-white/40 dark:border-white/10 flex flex-col items-center text-center h-[60vh] justify-between overflow-hidden"
+        >
+          {/* Decorative Gradient Blob */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-indic-teal/10 dark:bg-indic-gold/5 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indic-orange/10 dark:bg-indic-orange/5 rounded-full blur-3xl" />
           {/* Card Header */}
           <div className="bg-gradient-to-r from-indic-blue to-stone-900 px-6 py-5 flex justify-between items-center z-10 relative overflow-hidden">
             <div className="z-10">
@@ -204,39 +211,36 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
           </div>
 
           {/* Scrollable Content */}
-          <div className="p-8 min-h-[320px] max-h-[500px] overflow-y-auto flex flex-col items-center justify-center relative bg-gradient-to-b from-white to-stone-50 dark:from-stone-900 dark:to-stone-950">
+          <div className="flex-1 w-full p-6 overflow-y-auto flex flex-col items-center justify-start relative scrollbar-hide">
             {/* Quotation Marks */}
-            <div className="absolute top-6 left-6 text-indic-gold/20 text-6xl font-serif font-black z-0">“</div>
+            <div className="text-indic-gold/20 text-4xl font-serif font-black self-start mb-2">“</div>
 
-            <p className="relative z-10 text-lg md:text-xl text-stone-700 dark:text-stone-200 leading-8 font-serif text-center first-letter:text-3xl first-letter:font-bold first-letter:text-indic-teal">
+            <p className="relative z-10 text-lg md:text-xl text-stone-700 dark:text-stone-200 leading-relaxed font-serif text-justify first-letter:text-3xl first-letter:font-bold first-letter:text-indic-teal">
               {currentAnswer.content}
             </p>
 
-            <div className="mt-8 mb-4 w-12 h-1 bg-gradient-to-r from-transparent via-indic-gold to-transparent opacity-50"></div>
+            <div className="text-indic-gold/20 text-4xl font-serif font-black self-end mt-2">”</div>
+            <div className="mt-4 w-12 h-1 bg-gradient-to-r from-transparent via-indic-gold to-transparent opacity-50 shrink-0"></div>
           </div>
 
           {/* Watermark Logo */}
-          <div className="absolute bottom-20 right-6 z-20 opacity-20 pointer-events-none">
+          <div className="absolute bottom-20 right-6 z-20 opacity-10 pointer-events-none">
             <img
               src="/logo.png"
               alt="Logo"
-              className="w-16 h-16 object-contain"
+              className="w-24 h-24 object-contain"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           </div>
-          {/* Text Watermark */}
-          <div className="absolute bottom-4 left-0 right-0 text-center z-0 opacity-10">
-            <span className="text-sm font-bold tracking-[0.3em] text-indic-blue dark:text-stone-500 uppercase">IndicWisdom</span>
-          </div>
 
-          {/* Action Bar - Glassmorphism */}
-          <div data-html2canvas-ignore className="relative z-20 border-t border-stone-100 dark:border-stone-800 p-4 bg-white/90 dark:bg-stone-900/90 backdrop-blur-sm flex justify-between items-center">
+          {/* Action Bar - Floating Style */}
+          <div data-html2canvas-ignore className="relative z-30 w-full p-4 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-stone-900 dark:via-stone-900/90 pt-8 flex gap-4 justify-center items-center">
             <button
               onClick={() => handleSpeak(currentAnswer.content)}
               disabled={isLoadingAudio || isPlaying}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all font-medium ${isLoadingAudio || isPlaying
-                ? 'bg-indic-teal/10 text-indic-teal'
-                : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-indic-teal/10 hover:text-indic-teal'
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl transition-all font-bold shadow-md active:scale-95 ${isLoadingAudio || isPlaying
+                ? 'bg-indic-teal/10 text-indic-teal border border-indic-teal/20'
+                : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-700 hover:border-indic-teal hover:text-indic-teal'
                 }`}
             >
               {isLoadingAudio ? (
@@ -249,10 +253,10 @@ const AnswerCarousel: React.FC<AnswerCarouselProps> = ({ answers, language, logo
 
             <button
               onClick={handleShareImage}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indic-blue text-white font-medium shadow-md hover:shadow-lg hover:scale-105 transition-all active:scale-95"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-indic-blue to-indic-teal text-white font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all active:scale-95"
             >
-              <Icons.Share2 className="w-4 h-4" />
-              <span className="text-sm">Share Card</span>
+              <Icons.Share2 className="w-5 h-5" />
+              <span className="text-sm">Share</span>
             </button>
           </div>
         </div>

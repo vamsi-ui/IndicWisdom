@@ -66,7 +66,10 @@ export const fetchWisdom = async (
       1. Persona "Factual": Concise, direct, fact-based.
       2. Persona "Creative": Nuanced, storytelling, culturally rich.
 
-      SAFETY INSTRUCTION: Ensure all content is family-friendly, safe for all ages. strictly filter out hate speech, sexual content, or violence.
+      CRITICAL INSTRUCTIONS:
+      - OUTPUT MUST BE IN ${languageName} SCRIPT.
+      - Ensure all sentences are COMPLETE. Do not cut off.
+      - Strictly filter out hate speech, sexual content, or violence.
       
       Schema: { "responses": [ { "persona": string, "content": string } ] }
     `;
@@ -79,15 +82,34 @@ export const fetchWisdom = async (
         temperature: 0.7,
       },
     }).then(result => {
-      const json = JSON.parse(result.text || '{ "responses": [] }');
-      return json.responses.map((r: any) => ({
-        persona: r.persona,
-        modelName: "Gemini 1.5 Flash",
-        content: r.content
-      }));
+      // Use result.text directly. 
+      let text = result.text || JSON.stringify({ "responses": [] });
+
+      // Clean potential Markdown formatting (```json ... ```)
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
+      try {
+        const json = JSON.parse(text);
+        return json.responses.map((r: any) => ({
+          persona: r.persona,
+          modelName: "Gemini 1.5 Flash",
+          content: r.content
+        }));
+      } catch (parseError) {
+        console.warn("Gemini JSON Parse Failed:", text);
+        // Fallback: If valid text exists but not JSON, return it as a generic response
+        if (text.length > 20 && !text.includes("{")) {
+          return [{ persona: "Sage", modelName: "Gemini 1.5 Flash", content: text }];
+        }
+        throw parseError; // Go to catch block
+      }
     }).catch(e => {
       console.error("Gemini Task Failed", e);
-      return [];
+      return [{
+        persona: "Gemini",
+        modelName: "Gemini 1.5 Flash",
+        content: "I am meditating on this. Please ask again. (Model Error)"
+      }];
     });
 
     // Groq handles Llama 3 (Philosophical), Llama 3 (Witty), and Llama 3 (Logical)
@@ -160,15 +182,34 @@ export const fetchWisdom = async (
  * 
  * I will modify this function to use window.speechSynthesis and return "NATIVE_TTS_HANDLED".
  */
-export const fetchSpeech = async (text: string): Promise<string | undefined> => {
-  // Use Native Browser/Android TTS
-  if ('speechSynthesis' in window) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Try to find a Hindi or Indic voice if available, else default
-    // utterance.lang = 'hi-IN'; // We could pass language code here too
-    window.speechSynthesis.cancel(); // Stop previous
-    window.speechSynthesis.speak(utterance);
-    return "NATIVE"; // Signal to UI that we handled it
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
+import { Capacitor } from '@capacitor/core';
+
+export const fetchSpeech = async (text: string, langCode: string = 'en-US'): Promise<string | undefined> => {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await TextToSpeech.speak({
+        text: text,
+        lang: langCode,
+        rate: 1.0,
+        pitch: 1.0,
+        volume: 1.0,
+        category: 'ambient',
+      });
+      return "NATIVE";
+    } else {
+      // Web Fallback
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = langCode;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        return "NATIVE";
+      }
+    }
+  } catch (e) {
+    console.error("TTS Error", e);
+    // Check if error is "Audio unavailable" -> maybe plugin missing?
   }
-  throw new Error("TTS not supported on this device.");
+  throw new Error("TTS not supported.");
 }

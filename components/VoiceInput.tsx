@@ -68,23 +68,29 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ selectedLanguage, onTranscript,
   };
 
   const stopAndSend = async () => {
-    // 1. Capture text immediately
+    // 1. Capture text immediately from Ref
     const textToSend = textRef.current;
 
-    // 2. Stop Listening (Safely)
+    // 2. Clear state immediately to show UI feedback
+    setIsListening(false);
+
+    // 3. Send if valid
+    if (textToSend && textToSend.trim()) {
+      onTranscript(textToSend);
+    } else {
+      // Fallback: If ref is empty but state wasn't? 
+      // Just in case, try interimText
+      if (interimText.trim()) onTranscript(interimText);
+    }
+
+    // 4. Cleanup background (Fire and Forget)
     try {
       if (Capacitor.isNativePlatform()) {
-        await SpeechRecognition.stop();
-        await SpeechRecognition.removeAllListeners();
+        SpeechRecognition.stop().catch(e => console.warn("Stop caught:", e));
+        SpeechRecognition.removeAllListeners().catch(e => console.warn("RemoveListeners caught:", e));
       }
     } catch (e) {
-      console.warn("Stop Error (Ignored):", e);
-    } finally {
-      // 3. Always Reset State & Send
-      setIsListening(false);
-      if (textToSend && textToSend.trim()) {
-        onTranscript(textToSend);
-      }
+      console.warn("Background Cleanup Error:", e);
     }
   };
 

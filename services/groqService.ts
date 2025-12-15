@@ -36,7 +36,7 @@ export const fetchGroqResponse = async (
                 messages: [
                     {
                         role: "system",
-                        content: `You are a wise assistant. ${systemPersona}. Answer strictly in ${languageName}. Keep it concise (max 2 sentences).`
+                        content: `You are a wise assistant with the persona: ${systemPersona}. \n\nIMPORTANT: Answer STRICTLY in ${languageName} script and language. \nDo not use English unless the term is technical. \nEnsure your response is COMPLETE and does not end mid-sentence. \nKeep it concise (2-3 sentences), but meaningful.`
                     },
                     {
                         role: "user",
@@ -45,7 +45,7 @@ export const fetchGroqResponse = async (
                 ],
                 model: model,
                 temperature: 0.7,
-                max_tokens: 150
+                max_tokens: 1000
             })
         });
 

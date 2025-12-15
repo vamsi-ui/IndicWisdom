@@ -74,7 +74,7 @@ const App = () => {
     };
 
     return (
-        <div className={`${darkMode ? 'dark' : ''} h-[100dvh] w-full overflow-hidden flex flex-col bg-stone-50 dark:bg-stone-950 transition-colors duration-300`}>
+        <div className={`${darkMode ? 'dark' : ''} h-[100dvh] w-full overflow-hidden flex flex-col bg-gradient-to-br from-stone-50 via-orange-50/30 to-rose-50/20 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950 transition-colors duration-300`}>
             {!hasOnboarded ? (
                 <OnboardingFlow onComplete={completeOnboarding} />
             ) : (
